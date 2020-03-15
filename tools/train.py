@@ -18,6 +18,7 @@ from pytorch_classification.utils.miscellaneous import (
 )
 from pytorch_classification.utils.logger import setup_logger
 from pytorch_classification.utils.comm import get_rank, synchronize
+from tensorboardX import SummaryWriter
 
 
 def main():
@@ -53,9 +54,12 @@ def main():
         torch.distributed.init_process_group(backend="nccl", init_method="env://")
         synchronize()
 
+    # create tensorboard writer
     output_dir = cfg.OUTPUT_DIR
-    if output_dir:
+    tb_dir = os.path.join(output_dir, 'tb_log')
+    if get_rank()==0 and output_dir:
         mkdir(output_dir)
+        tb_writer = SummaryWriter(tb_dir)
 
     logger = setup_logger("Classification", output_dir, get_rank())
 
@@ -75,7 +79,7 @@ def main():
     logger.info("Saving config into: {}".format(output_config_path))
     save_config(cfg, output_config_path)
 
-    model = run_train(cfg, args.local_rank, distributed)
+    model = run_train(cfg, args.local_rank, distributed, tb_writer)
 
     if not args.skip_test:
         acc = run_test(cfg, args.local_rank, distributed, model)

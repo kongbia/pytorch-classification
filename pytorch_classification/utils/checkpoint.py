@@ -52,7 +52,7 @@ def load_checkpoint(checkpoint_path, distributed=False):
     if "state_dict" not in checkpoint:
         checkpoint = dict(state_dict=checkpoint)
 
-    save_distributed = list(checkpoint["state_dict"].keys())[0].startswith("module")
+    save_distributed = list(checkpoint["state_dict"].keys())[0].startswith("module.")
 
     if save_distributed == distributed:
         return checkpoint

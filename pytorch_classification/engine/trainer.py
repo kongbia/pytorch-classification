@@ -14,7 +14,8 @@ from pytorch_classification.utils.metric_logger import AverageMeter, MetricLogge
 
 
 def train(
-    model, epoch, max_epoch, data_loader, optimizer, criterion, device, print_iter_period, logger,
+    model, epoch, max_epoch, data_loader, optimizer, criterion, device, 
+    print_iter_period, logger, tb_writer
 ):
     meters = MetricLogger()
     max_iter = len(data_loader)
@@ -46,6 +47,11 @@ def train(
         eta_seconds = meters.time.avg * (max_iter - iteration)
         eta_string = str(datetime.timedelta(seconds=int(eta_seconds)))
 
+        tb_idx = epoch*max_iter + iteration
+        if get_rank()==0:
+            tb_writer.add_scalar('train/loss', loss.item(), tb_idx)
+            tb_writer.add_scalars('train/acc', {'acc1':acc1.item(), 'acc5':acc5.item()}, tb_idx)
+
         if iteration % print_iter_period == 0 or iteration == max_iter:
             logger.info(
                 meters.delimiter.join(
@@ -67,13 +73,14 @@ def train(
 
 
 def run_train(
-    cfg, local_rank, distributed,
+    cfg, local_rank, distributed, tb_writer
 ):
     logger = logging.getLogger("Classification.trainer")
 
     model = build_classification_model(cfg)
     device = torch.device(cfg.MODEL.DEVICE)
     model.to(device)
+    logger.info('Model params: %.2fM' % (sum(p.numel() for p in model.parameters())/1000000.0))
 
     optimizer = make_optimizer(cfg, model)
     criterion = make_criterion(cfg, device)
@@ -121,6 +128,7 @@ def run_train(
             device,
             print_iter_period,
             logger,
+            tb_writer,
         )
 
         if save_to_disk and ((epoch + 1) % save_epoch_period == 0 or (epoch + 1) == max_epoch):
@@ -138,6 +146,8 @@ def run_train(
 
             if acc is not None:
                 logger.info("Top1 accuracy: {}. Top5 accuracy: {}.".format(acc["top1"], acc["top5"]))
+                if save_to_disk:
+                    tb_writer.add_scalars('val/acc', {'acc1':acc["top1"], 'acc5':acc["top5"]}, epoch)
 
         epoch_time = time.time() - end
         end = time.time()

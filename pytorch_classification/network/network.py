@@ -1,4 +1,7 @@
 from .resnet import *
+from .ghostnet import *
+from .resnet_cifar import *
+from .darknet import *
 
 # from .new_network import *
 
@@ -11,4 +14,7 @@ __all__ = [
     "resnet152",
     "resnext50_32x4d",
     "resnext101_32x8d",
+    "resnet_cifar",
+    "ghostnet",
+    "Darknet",
 ]

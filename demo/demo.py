@@ -8,9 +8,9 @@ from predictor import ClsDemo
 from pytorch_classification.config import cfg
 
 
-config = "/path_to_config"
-img_path = "/path_to_image"
-checkpoint_path = "/path_to_pre-trained_model"
+config = "../configs/config_cifar10_R50_1gpu.yaml"
+img_path = "image/airplane_00003.jpg"
+checkpoint_path = "final-model-R50.pth"
 
 cfg.merge_from_file(config)
 cfg.merge_from_list(["CHECKPOINT", checkpoint_path])
