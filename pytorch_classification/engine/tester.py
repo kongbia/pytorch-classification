@@ -61,9 +61,9 @@ def inference(
 
             outputs = model(images)
             synchronize()
-            # output = _accumulate_values_from_multiple_gpus(outputs)
-            # target = _accumulate_values_from_multiple_gpus(targets)
-            # synchronize()
+            outputs = _accumulate_values_from_multiple_gpus(outputs)
+            targets = _accumulate_values_from_multiple_gpus(targets)
+            synchronize()
             if not is_main_process():
                 continue
 

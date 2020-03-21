@@ -336,3 +336,13 @@ def wide_resnet101_2(progress=True, **kwargs):
 
     kwargs["width_per_group"] = 64 * 2
     return _resnet("wide_resnet101_2", Bottleneck, [3, 4, 23, 3], progress, **kwargs)
+
+
+if __name__ == '__main__':
+    import torch
+    net = resnet18().cuda()
+    input = torch.FloatTensor(4,3,32,32).cuda()
+    output = net(input)
+    print(net)
+    # print(output.shape)
+    print('    Total params: %.2fM' % (sum(p.numel() for p in net.parameters())/1000000.0))
