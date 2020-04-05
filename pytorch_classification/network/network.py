@@ -2,6 +2,7 @@ from .resnet import *
 from .ghostnet import *
 from .resnet_cifar import *
 from .darknet import *
+from .hrnet import *
 
 # from .new_network import *
 
@@ -17,4 +18,7 @@ __all__ = [
     "resnet_cifar",
     "ghostnet",
     "Darknet",
+    "hrnet18",
+    "hrnet32",
+    "hrnet40",
 ]

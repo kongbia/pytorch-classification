@@ -91,7 +91,7 @@ def run_test(cfg, local_rank, distributed, model=None):
             )
 
         checkpoint_path = (
-            cfg.CHECKPOINT if cfg.CHECKPOINT else os.path.join(cfg.OUTPUT_DIR, "model-final.pth")
+            cfg.CHECKPOINT if cfg.CHECKPOINT else os.path.join(cfg.OUTPUT_DIR, "final-model.pth")
         )
         checkpoint = load_checkpoint(checkpoint_path, distributed)
 
