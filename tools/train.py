@@ -18,7 +18,8 @@ from pytorch_classification.utils.miscellaneous import (
 )
 from pytorch_classification.utils.logger import setup_logger
 from pytorch_classification.utils.comm import get_rank, synchronize
-from tensorboardX import SummaryWriter
+# from tensorboardX import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 
 
 def main():

@@ -232,13 +232,13 @@ blocks_dict = {'BASIC': BasicBlock, 'BOTTLENECK': Bottleneck}
 
 class HRNet(nn.Module):
 
-    def __init__(self, cfg, num_classes=1000, out_channels=256):
+    def __init__(self, cfg, num_classes=1000):
         super(HRNet, self).__init__()
 
-        self.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1,   #
+        self.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=2, padding=1,   #
                                bias=False)
         self.bn1 = nn.BatchNorm2d(64, momentum=BN_MOMENTUM)
-        self.conv2 = nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1,
+        self.conv2 = nn.Conv2d(64, 64, kernel_size=3, stride=2, padding=1,
                                bias=False)
         self.bn2 = nn.BatchNorm2d(64, momentum=BN_MOMENTUM)
         self.relu = nn.ReLU(inplace=True)
@@ -280,17 +280,62 @@ class HRNet(nn.Module):
         self.stage4, pre_stage_channels = self._make_stage(
             self.stage4_cfg, num_channels, multi_scale_output=True)
         
-        # v2 type output
-        self.reduction_conv = nn.Conv2d(sum(num_channels), 
-                                        out_channels, 
-                                        kernel_size=1, 
-                                        stride=1,
-                                        padding=0)
+        # Classification Head
+        self.incre_modules, self.downsamp_modules, \
+            self.final_layer = self._make_head(pre_stage_channels)
 
-        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(out_channels, num_classes)
+        self.classifier = nn.Linear(2048, num_classes)
         
         self.init_weights()
+    
+    def _make_head(self, pre_stage_channels):
+        head_block = Bottleneck
+        head_channels = [32, 64, 128, 256]
+
+        # Increasing the #channels on each resolution 
+        # from C, 2C, 4C, 8C to 128, 256, 512, 1024
+        incre_modules = []
+        for i, channels  in enumerate(pre_stage_channels):
+            incre_module = self._make_layer(head_block,
+                                            channels,
+                                            head_channels[i],
+                                            1,
+                                            stride=1)
+            incre_modules.append(incre_module)
+        incre_modules = nn.ModuleList(incre_modules)
+            
+        # downsampling modules
+        downsamp_modules = []
+        for i in range(len(pre_stage_channels)-1):
+            in_channels = head_channels[i] * head_block.expansion
+            out_channels = head_channels[i+1] * head_block.expansion
+
+            downsamp_module = nn.Sequential(
+                nn.Conv2d(in_channels=in_channels,
+                          out_channels=out_channels,
+                          kernel_size=3,
+                          stride=2,
+                          padding=1),
+                nn.BatchNorm2d(out_channels, momentum=BN_MOMENTUM),
+                nn.ReLU(inplace=True)
+            )
+
+            downsamp_modules.append(downsamp_module)
+        downsamp_modules = nn.ModuleList(downsamp_modules)
+
+        final_layer = nn.Sequential(
+            nn.Conv2d(
+                in_channels=head_channels[3] * head_block.expansion,
+                out_channels=2048,
+                kernel_size=1,
+                stride=1,
+                padding=0
+            ),
+            nn.BatchNorm2d(2048, momentum=BN_MOMENTUM),
+            nn.ReLU(inplace=True)
+        )
+
+        return incre_modules, downsamp_modules, final_layer
 
 
     def _make_transition_layer(
@@ -406,25 +451,25 @@ class HRNet(nn.Module):
                 x_list.append(y_list[i])
         y_list = self.stage4(x_list)
 
-        out = self.v2_output(y_list)
-        
-        out = self.avgpool(out)
-        out = out.view(out.size(0), -1)
-        out = self.fc(out)
-        return out
+         # Classification Head
+        y = self.incre_modules[0](y_list[0])
+        for i in range(len(self.downsamp_modules)):
+            y = self.incre_modules[i+1](y_list[i+1]) + \
+                        self.downsamp_modules[i](y)
+
+        y = self.final_layer(y)
+
+        if torch._C._get_tracing_state():
+            y = y.flatten(start_dim=2).mean(dim=2)
+        else:
+            y = F.avg_pool2d(y, kernel_size=y.size()
+                                 [2:]).view(y.size(0), -1)
+
+        y = self.classifier(y)
+
+        return y
     
-    def v2_output(self, inputs):
-        num_ins = len(inputs)
-        outs = [inputs[0]]
-        for i in range(1, num_ins):
-            outs.append(
-                F.interpolate(inputs[i], scale_factor=2**i, mode='bilinear',align_corners=True))
-        out = torch.cat(outs, dim=1)
-        out = self.reduction_conv(out)
-        # out = self.pooling(out, kernel_size=2, stride=2)
-        return out
-
-
+    
     def init_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -487,12 +532,11 @@ if __name__ == '__main__':
     net = hrnet18()
     net = net.cuda()
 
-    # doc = open('out.txt','w')
-    # print(net, file=doc)
-    print(net)
+    doc = open('out.txt','w')
+    print(net, file=doc)
+    # print(net)
 
-    var = torch.FloatTensor(1, 3, 32, 32).cuda()
+    var = torch.FloatTensor(1, 3, 64, 64).cuda()
     output = net(var)
     print(output.shape)
     print('Model params: %.2fM' % (sum(p.numel() for p in net.parameters())/1000000.0))
-    

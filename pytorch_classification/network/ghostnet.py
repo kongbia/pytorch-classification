@@ -208,3 +208,9 @@ if __name__=='__main__':
     input = torch.randn(16,3,32,32)
     y = model(input)
     print(y.shape)
+
+    from torch.utils.tensorboard import SummaryWriter
+    writer = SummaryWriter(log_dir='./logs', comment='ghost')
+    with writer:
+        writer.add_graph(model, (input,))
+    writer.close() 
