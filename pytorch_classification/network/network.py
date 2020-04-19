@@ -3,6 +3,7 @@ from .ghostnet import *
 from .resnet_cifar import *
 from .darknet import *
 from .hrnet import *
+from .resnet_blurpool import *
 
 # from .new_network import *
 
